@@ -8,7 +8,7 @@ class Nuntius {
             chatWindowOpened: false,
             chatWindowCreated: false,
             serverConnectionMethod: 'ajax',
-            serverUrl: 'http://localhost',
+            serverUrl: 'http://192.168.0.102:800',
             ajaxCallsInterval: false,
             brand: false,
             userId: false,
