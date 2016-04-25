@@ -119,7 +119,7 @@
 	                        $lastBanner.remove();
 	                    }
 
-	                    $mainDiv.innerHTML = '<div id="nuntius-banner">\n                                        <div id="nuntius-banner-cancel">' + cancelButton + '</div>\n                                        ' + banner.message + '\n                                     </div>';
+	                    $mainDiv.innerHTML = '<div id="nuntius-banner">\n                                        <div id="nuntius-banner-cancel">' + cancelButton + '</div>\n                                        ' + banner.banner_data + '\n                                     </div>';
 	                    $mainDiv.style = 'position: fixed';
 
 	                    $body.appendChild($mainDiv);
@@ -157,7 +157,6 @@
 	            var options = arguments.length <= 0 || arguments[0] === undefined ? {} : arguments[0];
 
 	            if (!options.userId) options.userId = 0;
-	            console.log(options.userId);
 	            if (options.serverConnectionMethod) this.state.serverConnectionMethod;
 	            if (!options.brand) return;
 	            this.state.brand = options.brand;
@@ -208,7 +207,6 @@
 	                this.serverInteraction();
 	            } else {
 	                this.askForSession(this.state.brand, this.state.userId);
-	                // this.openChatWindow(this.state.brand, this.state.sessionId);
 	                this.serverInteraction();
 	            }
 
@@ -254,9 +252,11 @@
 	                    userId: userId,
 	                    countryCode: that.data.userLocation.countryCode
 	                }).end(function (resp, data) {
-	                    that.state.sessionId = data.body.sessionId;
-	                    that.state.sessionHash = data.body.sessionHash;
-	                    that.chatAndBannerLastMessages();
+	                    if (data.body) {
+	                        that.state.sessionHash = data.body.sessionHash;
+	                        that.state.companyId = data.body.companyId;
+	                        that.chatAndBannerLastMessages();
+	                    }
 	                });
 	            });
 	        }
@@ -282,7 +282,7 @@
 	        value: function chatAndBannerLastMessages() {
 	            this.data.getMessagesRunning = true;
 	            var that = this;
-	            _superagent2.default.get(this.state.serverUrl + '/client/chatAndBannerLastMessages/' + this.state.sessionId).query({ lastTimestamp: that.state.lastMessageTimestamp, sessionHash: that.state.sessionHash, lastBannerView: this.state.lastBannerView }).end(function (resp, data) {
+	            _superagent2.default.get(this.state.serverUrl + '/client/chatAndBannerLastMessages').query({ lastTimestamp: that.state.lastMessageTimestamp, sessionHash: that.state.sessionHash, lastBannerView: this.state.lastBannerView, companyId: that.state.companyId }).end(function (resp, data) {
 	                that.data.getMessagesRunning = false;
 	                if (data && data.body && data.body.code === 200) {
 	                    that.printMessages(data.body.dataChat);
@@ -300,7 +300,8 @@
 	            var messageId = 0,
 	                messagesLength = messages.length,
 	                messagesText = void 0,
-	                $messagesSelector = document.getElementById('buschat-messages-' + this.data.hash);
+	                $messagesSelector = document.getElementById('buschat-messages-' + this.data.hash),
+	                that = this;
 	            var agentStyle = '\n                                    padding: 1%;\n                                    font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;\n                                    font-size: 14px;\n                                    border-radius: 4px;\n                                    background-color: #337ab7;\n                                    padding: .2em .6em .3em;\n                                    font-size: 75%;\n                                    line-height: 1;\n                                    color: #fff;\n                                    vertical-align: baseline;\n                                    border-radius: .25em;\n                                    margin-bottom: 2px;\n        ';
 
 	            var clientStyle = '\n                                padding: 1%;\n                                font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;\n                                font-size: 14px;\n                                border-radius: 4px;\n                                background-color: #f0ad4e;\n                                padding: .2em .6em .3em;\n                                font-size: 75%;\n                                line-height: 1;\n                                color: #fff;\n                                vertical-align: baseline;\n                                border-radius: .25em;\n                                margin-bottom: 2px;\n        ';
@@ -326,11 +327,11 @@
 	    }, {
 	        key: 'sendMessage',
 	        value: function sendMessage() {
-	            var $messageText = document.getElementById('buschat-add-message-text-' + this.data.hash);
-	            var message = $messageText.value;
-	            var source = 'client';
-	            var that = this;
-	            _superagent2.default.post(that.state.serverUrl + ('/chat/message/' + this.state.sessionHash)).query({ message: message, userId: this.state.userId, source: source })
+	            var $messageText = document.getElementById('buschat-add-message-text-' + this.data.hash),
+	                message = $messageText.value,
+	                source = 'client',
+	                that = this;
+	            _superagent2.default.post(that.state.serverUrl + ('/chat/message/' + this.state.sessionHash)).query({ message: message, userId: this.state.userId, source: source, companyId: that.state.companyId })
 	            // .use(ajaxJsonp)
 	            .end(function (resp, data) {
 	                if (data && data.body.code == 200) {
@@ -371,6 +372,18 @@
 	        value: function deleteSession() {
 	            var sessionHash = this.state.sessionHash;
 	            _superagent2.default.post(this.state.serverUrl + '/chat/deleteSession/').send({ sessionHash: sessionHash }).end();
+	        }
+	    }, {
+	        key: 'postAction',
+	        value: function postAction(options) {
+	            if (!options || !this.state.sessionHash) return;
+	            var that = this;
+	            _superagent2.default.post(that.state.serverUrl + '/action/' + that.state.sessionHash).query({
+	                actionName: options.actionName,
+	                extraData: options.extraData || '',
+	                amount: options.amount,
+	                companyId: that.state.companyId
+	            }).end();
 	        }
 	    }]);
 

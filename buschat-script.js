@@ -48,7 +48,7 @@ class Nuntius {
 
             $mainDiv.innerHTML  =   `<div id="nuntius-banner">
                                         <div id="nuntius-banner-cancel">${cancelButton}</div>
-                                        ${banner.message}
+                                        ${banner.banner_data}
                                      </div>`;
             $mainDiv.style      =   `position: fixed`;
 
@@ -220,8 +220,7 @@ class Nuntius {
             // this.openChatWindow(this.state.brand, this.state.sessionId);
             this.serverInteraction()
         } else {
-            this.askForSession(this.state.brand, this.state.userId)
-            // this.openChatWindow(this.state.brand, this.state.sessionId);
+            this.askForSession(this.state.brand, this.state.userId);
             this.serverInteraction()
         }
 
@@ -263,9 +262,11 @@ class Nuntius {
                     countryCode: that.data.userLocation.countryCode
                 })
                 .end(function(resp, data) {
-                    that.state.sessionId    =   data.body.sessionId;
-                    that.state.sessionHash  =   data.body.sessionHash;
-                    that.chatAndBannerLastMessages()
+                    if(data.body) {
+                        that.state.sessionHash  =   data.body.sessionHash;
+                        that.state.companyId    =   data.body.companyId;
+                        that.chatAndBannerLastMessages()
+                    }
                 })
 
         })
@@ -289,8 +290,8 @@ class Nuntius {
     chatAndBannerLastMessages() {
         this.data.getMessagesRunning    =   true;
         var that    =   this;
-        ajax.get(this.state.serverUrl + '/client/chatAndBannerLastMessages/' + this.state.sessionId)
-            .query({lastTimestamp: that.state.lastMessageTimestamp, sessionHash: that.state.sessionHash, lastBannerView: this.state.lastBannerView})
+        ajax.get(this.state.serverUrl + '/client/chatAndBannerLastMessages')
+            .query({lastTimestamp: that.state.lastMessageTimestamp, sessionHash: that.state.sessionHash, lastBannerView: this.state.lastBannerView, companyId: that.state.companyId})
             .end(function(resp, data) {
                 that.data.getMessagesRunning    =   false;
                 if(data && data.body && data.body.code === 200) {
@@ -306,7 +307,11 @@ class Nuntius {
 
     printMessages(messages) {
         if(!messages || !messages.length) return;
-        let messageId = 0, messagesLength = messages.length, messagesText, $messagesSelector = document.getElementById(`buschat-messages-${this.data.hash}`);
+        let messageId           =   0,
+            messagesLength      =   messages.length,
+            messagesText,
+            $messagesSelector   =   document.getElementById(`buschat-messages-${this.data.hash}`),
+            that                =   this;
         let agentStyle  =   `
                                     padding: 1%;
                                     font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
@@ -360,12 +365,12 @@ class Nuntius {
     }
 
     sendMessage() {
-        let $messageText    =   document.getElementById(`buschat-add-message-text-${this.data.hash}`);
-        let message         =   $messageText.value;
-        let source          =   'client';
-        let that            =   this;
+        let $messageText    =   document.getElementById(`buschat-add-message-text-${this.data.hash}`),
+            message         =   $messageText.value,
+            source          =   'client',
+            that            =   this;
         ajax.post(that.state.serverUrl + `/chat/message/${this.state.sessionHash}`)
-            .query({message: message, userId: this.state.userId, source: source})
+            .query({message: message, userId: this.state.userId, source: source, companyId: that.state.companyId})
             // .use(ajaxJsonp)
             .end((resp, data) => {
                 if(data && data.body.code == 200) {
@@ -402,6 +407,19 @@ class Nuntius {
         let sessionHash    =   this.state.sessionHash;
         ajax.post(this.state.serverUrl + '/chat/deleteSession/')
             .send({sessionHash})
+            .end()
+    }
+
+    postAction(options) {
+        if(!options || !this.state.sessionHash) return;
+        let that    =   this;
+        ajax.post(`${that.state.serverUrl}/action/${that.state.sessionHash}`)
+            .query({
+                actionName: options.actionName,
+                extraData: options.extraData || '',
+                amount: options.amount,
+                companyId: that.state.companyId
+            })
             .end()
     }
 }
